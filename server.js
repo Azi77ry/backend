@@ -3,9 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const recordRoutes = require('./routes/recordRoutes');
+const morgan = require('morgan');
 
 // Load environment variables
 dotenv.config();
@@ -26,18 +25,16 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Root route
-app.get('/', (req, res) => {
-  res.send('Welcome to the Income Record Manager API!');
-});
-
-// API routes
-app.use('/api/records', recordRoutes);
-
-// Connect to MongoDB
+// MongoDB connection
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/incomeRecords';
+
 mongoose
-  .connect(mongoURI)
+  .connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    tls: true, // Enable TLS/SSL
+    tlsAllowInvalidCertificates: true, // Allow self-signed certificates (if needed)
+  })
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('Failed to connect to MongoDB:', err));
 
