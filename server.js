@@ -1,32 +1,35 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const path = require('path');
-
-// Load environment variables
-dotenv.config();
 
 // Initialize Express app
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, process.env.ADMIN_URL] 
+    : '*'
+}));
 app.use(helmet());
 app.use(morgan('combined'));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use(limiter);
 
-// Serve static files from the public directory
+// Serve static files from React/Vue frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB connection
@@ -34,14 +37,18 @@ const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/incomeRecor
 
 mongoose.connect(mongoURI)
   .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Failed to connect to MongoDB:', err));
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Define schema and model
 const incomeSchema = new mongoose.Schema({
   description: { type: String, required: true },
   amount: { type: Number, required: true, min: 0 },
   date: { type: Date, required: true, default: Date.now },
-  category: { type: String, enum: ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'], default: 'Other' }
+  category: { 
+    type: String, 
+    enum: ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'], 
+    default: 'Other' 
+  }
 });
 
 const IncomeRecord = mongoose.model('IncomeRecord', incomeSchema);
@@ -136,21 +143,21 @@ app.delete('/api/records/:id', async (req, res) => {
   }
 });
 
-// Serve HTML files
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+// Serve frontend routes
+app.get(['/', '/home'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
-    status: 'running',
-    message: 'Income Records API is operational',
-    timestamp: new Date().toISOString()
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
@@ -163,5 +170,6 @@ app.use((err, req, res, next) => {
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

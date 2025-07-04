@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Income Record Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+</head>
+<body class="bg-light">
+    <!-- Password Prompt Modal -->
+    <div id="passwordModal" class="modal fade" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Admin Access</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-shield-lock fs-1 text-primary"></i>
+                    </div>
+                    <p class="text-center">Please enter the admin password to continue:</p>
+                    <input type="password" id="passwordInput" class="form-control form-control-lg" placeholder="Enter password">
+                    <p id="errorMessage" class="text-danger mt-2 text-center" style="display: none;">
+                        <i class="bi bi-exclamation-circle"></i> Incorrect password. Please try again.
+                    </p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-primary btn-lg px-4" onclick="checkPassword()">
+                        <i class="bi bi-unlock"></i> Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Page Content (Hidden by Default) -->
+    <div id="adminContent" style="display: none;">
+        <!-- Navigation Bar -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-gradient shadow">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center" href="#">
+                    <i class="bi bi-cash-stack me-2"></i>
+                    <span class="fw-bold">Income Manager Pro</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#"><i class="bi bi-house-door"></i> Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('records-section')"><i class="bi bi-list-ul"></i> Records</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('analytics-section')"><i class="bi bi-graph-up"></i> Analytics</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="index.html"><i class="bi bi-people"></i> User View</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Dashboard Section -->
+        <div class="container-fluid py-4">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card bg-white shadow-sm border-0">
+                        <div class="card-body p-4">
+                            <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i> Dashboard Overview</h2>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <div class="card bg-primary text-white h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="card-subtitle mb-2">Total Income</h6>
+                                                    <h3 class="card-title mb-0" id="totalIncome">$0.00</h3>
+                                                </div>
+                                                <i class="bi bi-currency-dollar fs-1 opacity-50"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card bg-success text-white h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="card-subtitle mb-2">Records Count</h6>
+                                                    <h3 class="card-title mb-0" id="recordsCount">0</h3>
+                                                </div>
+                                                <i class="bi bi-list-check fs-1 opacity-50"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card bg-info text-white h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="card-subtitle mb-2">Average Income</h6>
+                                                    <h3 class="card-title mb-0" id="averageIncome">$0.00</h3>
+                                                </div>
+                                                <i class="bi bi-graph-up fs-1 opacity-50"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="card bg-warning text-dark h-100">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="card-subtitle mb-2">Last Record</h6>
+                                                    <h3 class="card-title mb-0" id="lastRecordDate">-</h3>
+                                                </div>
+                                                <i class="bi bi-calendar-event fs-1 opacity-50"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Records Section -->
+            <div class="row" id="records-section">
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white border-0">
+                            <h3 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add New Record</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="incomeForm" class="needs-validation" novalidate>
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Description</label>
+                                    <input type="text" class="form-control" id="description" required>
+                                    <div class="invalid-feedback">Please provide a description.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="amount" class="form-label">Amount</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="amount" min="0" step="0.01" required>
+                                        <div class="invalid-feedback">Please provide a valid amount.</div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="date" class="form-label">Date</label>
+                                    <input type="date" class="form-control" id="date" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="category" class="form-label">Category</label>
+                                    <select class="form-select" id="category" required>
+                                        <option value="" selected disabled>Select category</option>
+                                        <option value="Salary">Salary</option>
+                                        <option value="Freelance">Freelance</option>
+                                        <option value="Investment">Investment</option>
+                                        <option value="Gift">Gift</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 py-2">
+                                    <i class="bi bi-save me-2"></i>Add Record
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0"><i class="bi bi-table me-2"></i>Income Records</h3>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown">
+                                    <i class="bi bi-funnel"></i> Filter
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('all')">All Categories</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('Salary')">Salary</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('Freelance')">Freelance</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('Investment')">Investment</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('Gift')">Gift</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="filterRecords('Other')">Other</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Date</th>
+                                            <th>Category</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recordTable">
+                                        <!-- Records will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-muted">Records per page:</span>
+                                    <select class="form-select form-select-sm w-auto" id="recordsPerPage" onchange="changeRecordsPerPage()">
+                                        <option value="5">5</option>
+                                        <option value="10" selected>10</option>
+                                        <option value="20">20</option>
+                                        <option value="50">50</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="previousPage()" id="prevBtn" disabled>
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <span class="mx-2" id="pageInfo">Page 1 of 1</span>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn" disabled>
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Section (Hidden by Default) -->
+            <div class="row" id="analytics-section" style="display: none;">
+                <div class="col-lg-8 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white border-0">
+                            <h3 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Income Trends</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="incomeChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-white border-0">
+                            <h3 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Income by Category</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="categoryChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-dark text-white py-4 mt-auto">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="bi bi-cash-stack me-2"></i>Income Manager Pro</h5>
+                        <p class="text-muted">A comprehensive solution for managing your income records.</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Quick Links</h5>
+                        <ul class="list-unstyled">
+                            <li><a href="#" class="text-decoration-none text-muted">Dashboard</a></li>
+                            <li><a href="#" class="text-decoration-none text-muted">Records</a></li>
+                            <li><a href="#" class="text-decoration-none text-muted">Analytics</a></li>
+                            <li><a href="index.html" class="text-decoration-none text-muted">User View</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Actions</h5>
+                        <button class="btn btn-outline-light btn-sm mb-2 w-100" onclick="printRecords()">
+                            <i class="bi bi-printer me-1"></i> Print Records
+                        </button>
+                        <button class="btn btn-outline-light btn-sm mb-2 w-100" onclick="exportToCSV()">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Export to CSV
+                        </button>
+                        <button class="btn btn-outline-light btn-sm w-100" onclick="showBackupModal()">
+                            <i class="bi bi-cloud-arrow-down me-1"></i> Backup Data
+                        </button>
+                    </div>
+                </div>
+                <hr class="my-4 bg-secondary">
+                <div class="text-center text-muted">
+                    <small>&copy; 2023 Income Manager Pro. All rights reserved.</small>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Backup Modal -->
+    <div class="modal fade" id="backupModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-cloud-arrow-down me-2"></i>Data Backup</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> This will download all your records as a JSON file.
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="downloadBackup()">
+                            <i class="bi bi-download me-2"></i> Download Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="js/script.js"></script>
+    <script>
+        // Password Configuration
+        const ADMIN_PASSWORD = "lulu123"; // Set your admin password here
+
+        // Show Password Modal on Page Load
+        const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'));
+        passwordModal.show();
+
+        // Initialize Backup Modal
+        const backupModal = new bootstrap.Modal(document.getElementById('backupModal'));
+
+        // Function to Check Password
+        function checkPassword() {
+            const passwordInput = document.getElementById('passwordInput').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (passwordInput === ADMIN_PASSWORD) {
+                passwordModal.hide();
+                document.getElementById('adminContent').style.display = 'block';
+                // Load dashboard data
+                fetchDashboardData();
+            } else {
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 1000);
+            }
+        }
+
+        // Show different sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.row').forEach(section => {
+                section.style.display = 'none';
+            });
+            document.getElementById(sectionId).style.display = 'flex';
+        }
+
+        // Show backup modal
+        function showBackupModal() {
+            backupModal.show();
+        }
+
+        // Initialize dashboard
+        function fetchDashboardData() {
+            // This will be implemented in the main script.js
+        }
+    </script>
+</body>
+</html>
