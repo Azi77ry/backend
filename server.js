@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -12,203 +13,155 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
-// Enhanced Middleware
-app.use(express.json({ limit: '10kb' }));
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+// Middleware
+app.use(express.json());
+app.use(cors());
 app.use(helmet());
-app.use(morgan('dev')); // More concise logging
+app.use(morgan('combined'));
 
-// Enhanced Rate limiting
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Increased limit for better UX
-  message: 'Too many requests from this IP, please try again later'
+  max: 100, // Limit each IP to 100 requests per windowMs
 });
-app.use('/api/', limiter);
+app.use(limiter);
 
-// MongoDB connection with enhanced options
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// MongoDB connection
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/incomeRecords';
 
-mongoose.connect(mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-  family: 4, // Force IPv4
-})
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch((err) => {
-  console.error('❌ MongoDB connection error:', err);
-  process.exit(1);
-});
+mongoose.connect(mongoURI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('Failed to connect to MongoDB:', err));
 
-// Enhanced Schema with validation and timestamps
+// Define schema and model
 const incomeSchema = new mongoose.Schema({
-  description: {
-    type: String,
-    required: [true, 'Description is required'],
-    trim: true,
-    maxlength: [100, 'Description cannot exceed 100 characters']
-  },
-  amount: {
-    type: Number,
-    required: [true, 'Amount is required'],
-    min: [0, 'Amount must be positive']
-  },
-  date: {
-    type: Date,
-    required: [true, 'Date is required'],
-    default: Date.now
-  },
-  category: {
-    type: String,
-    enum: ['Salary', 'Freelance', 'Investment', 'Bonus', 'Other'],
-    default: 'Other'
-  }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  description: { type: String, required: true },
+  amount: { type: Number, required: true, min: 0 },
+  date: { type: Date, required: true, default: Date.now },
+  category: { type: String, enum: ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'], default: 'Other' }
 });
-
-// Add indexes for better performance
-incomeSchema.index({ date: 1 });
-incomeSchema.index({ category: 1 });
 
 const IncomeRecord = mongoose.model('IncomeRecord', incomeSchema);
 
-// Enhanced API endpoints with error handling
-const router = express.Router();
-
-// Create record
-router.post('/records', async (req, res, next) => {
+// API endpoints
+app.post('/api/records', async (req, res) => {
   try {
     const { description, amount, date, category } = req.body;
-    const record = await IncomeRecord.create({ 
-      description, 
-      amount, 
-      date: date || new Date(),
-      category
-    });
-    
-    res.status(201).json({
-      status: 'success',
-      data: {
-        record
-      }
-    });
-  } catch (err) {
-    next(err);
+    const record = new IncomeRecord({ description, amount, date, category });
+    await record.save();
+    res.status(201).json(record);
+  } catch (error) {
+    console.error('Error adding record:', error);
+    res.status(500).json({ error: 'Failed to add record' });
   }
 });
 
-// Get all records with filtering and sorting
-router.get('/records', async (req, res, next) => {
+app.get('/api/records', async (req, res) => {
   try {
-    // 1) Filtering
-    const queryObj = { ...req.query };
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.forEach(el => delete queryObj[el]);
-
-    // 2) Advanced filtering
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+    const { page = 1, limit = 10, category } = req.query;
+    const query = category ? { category } : {};
     
-    let query = IncomeRecord.find(JSON.parse(queryStr));
-
-    // 3) Sorting
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-date'); // Default: newest first
-    }
-
-    // 4) Pagination
-    const page = req.query.page * 1 || 1;
-    const limit = req.query.limit * 1 || 10;
-    const skip = (page - 1) * limit;
-
-    query = query.skip(skip).limit(limit);
-
-    const records = await query;
-    const total = await IncomeRecord.countDocuments(JSON.parse(queryStr));
-
-    res.status(200).json({
-      status: 'success',
-      results: records.length,
+    const records = await IncomeRecord.find(query)
+      .sort({ date: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+      
+    const total = await IncomeRecord.countDocuments(query);
+    
+    res.json({
+      records,
       total,
-      data: {
-        records
-      }
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    console.error('Error fetching records:', error);
+    res.status(500).json({ error: 'Failed to fetch records' });
   }
 });
 
-// Delete record
-router.delete('/records/:id', async (req, res, next) => {
+app.get('/api/records/stats', async (req, res) => {
   try {
-    const record = await IncomeRecord.findByIdAndDelete(req.params.id);
+    const stats = await IncomeRecord.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+          average: { $avg: "$amount" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalAmount: 1,
+          count: 1,
+          average: { $round: ["$average", 2] }
+        }
+      }
+    ]);
     
-    if (!record) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'No record found with that ID'
-      });
-    }
+    const categoryStats = await IncomeRecord.aggregate([
+      {
+        $group: {
+          _id: "$category",
+          total: { $sum: "$amount" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
     
-    res.status(204).json({
-      status: 'success',
-      data: null
+    res.json({
+      ...stats[0],
+      categories: categoryStats
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
-// Mount router
-app.use('/api', router);
+app.delete('/api/records/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await IncomeRecord.findByIdAndDelete(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting record:', error);
+    res.status(500).json({ error: 'Failed to delete record' });
+  }
+});
+
+// Serve HTML files
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'running',
+    message: 'Income Records API is operational',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('🔥 Error:', err.stack);
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || 'error';
-  
-  res.status(err.statusCode).json({
-    status: err.status,
-    message: err.message
-  });
-});
-
-// 404 handler
-app.all('*', (req, res) => {
-  res.status(404).json({
-    status: 'fail',
-    message: `Can't find ${req.originalUrl} on this server!`
-  });
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Start the server
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-// Handle unhandled rejections
-process.on('unhandledRejection', err => {
-  console.error('💥 UNHANDLED REJECTION! Shutting down...');
-  console.error(err.name, err.message);
-  server.close(() => process.exit(1));
-});
-
-// Handle SIGTERM
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM RECEIVED. Shutting down gracefully');
-  server.close(() => console.log('💥 Process terminated'));
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

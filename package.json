@@ -1,18 +1,21 @@
 {
-  "name": "income-record-app",
+  "name": "income-records-backend",
   "version": "1.0.0",
-  "description": "Income Record Manager",
+  "description": "Backend for Income Records Application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-rate-limit": "^6.11.2",
-    "helmet": "^7.2.0",
-    "mongoose": "^8.12.1",
-    "morgan": "^1.10.0"
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "helmet": "^7.0.0",
+    "mongoose": "^7.0.3",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^6.7.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
